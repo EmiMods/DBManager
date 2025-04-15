@@ -258,12 +258,12 @@ function ShowQueryBuilder()
                 end
             end
         elseif selected == QueryBuilderMenu[2] then -- "Show Keyboard"
-            local selectedSyntax
-            while selectedSyntax ~= -1 do   -- Keep refreshing screen for input until user cancels
-                selectedSyntax = PromptSelectFromArr(Keyboard, "Query: " .. GetFittedCurrentBuilderQuery())
-                if selectedSyntax ~= -1 then
-                    local toInsert = Keyboard[selectedSyntax]
-                    if toInsert == 'SPACE' then
+            local selectedKey
+            while selectedKey ~= -1 do   -- Keep refreshing screen for input until user cancels
+                selectedKey = PromptSelectFromArr(Keyboard, "Query: " .. GetFittedCurrentBuilderQuery())
+                if selectedKey ~= -1 then
+                    local toInsert = Keyboard[selectedKey]
+                    if toInsert == "SPACE" then
                         toInsert = " "
                     end
                     LastEntry = toInsert
