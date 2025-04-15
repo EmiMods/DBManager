@@ -84,6 +84,9 @@ SqlSyntax = {
     "AVG(",
     "MAX(",
     "MIN(",
+    "UPPER(",
+    "LOWER(",
+    "SUBSTR(",
     "GROUP_CONCAT("
 }
 
@@ -95,7 +98,6 @@ Keyboard = {
     ")",
     ".",
     "=",
-    "==",
     "+",
     "-",
     "*",
@@ -157,7 +159,33 @@ Keyboard = {
     "~",
     "`",
     "|",
-    "&"
+    "&",
+    "A",
+    "B",
+    "C",
+    "D",
+    "E",
+    "F",
+    "G",
+    "H",
+    "I",
+    "J",
+    "K",
+    "L",
+    "M",
+    "N",
+    "O",
+    "P",
+    "Q",
+    "R",
+    "S",
+    "T",
+    "U",
+    "V",
+    "W",
+    "X",
+    "Y",
+    "Z"
 }
 
 MainMenu = {
@@ -168,14 +196,13 @@ MainMenu = {
 QueryBuilderMenu = {
     "Show SQL Syntax",
     "Show Keyboard",
+    "Show Tables",
     "Show Column By Table",
     "Show Full Query",
     "Delete Last Entry",
     "Backspace",
     "",
     "Clear Query",
-    "Quit",
-    "Main Menu",
     "",
     "Execute Query"
 }
@@ -185,6 +212,11 @@ MainMenuOption_ViewTable = 2
 
 -- Main entry point to script
 function main()
+    ResetToMainMenu()
+end
+
+-- Return to start of the application
+function ResetToMainMenu()
     -- Show Main Menu
     local selectedMenuOption = ShowMainMenu();
 
@@ -196,6 +228,7 @@ function main()
     -- User canceled
 end
 
+-- Display Main Menu and return selected option's index, or -1 if cancelled
 function ShowMainMenu()
     local dialogBox = Script.ShowPopupList(scriptTitle, "Error", MainMenu)
     if not dialogBox.Canceled then
@@ -208,69 +241,103 @@ end
 -- Menu for user to build and execute queries
 function ShowQueryBuilder()
     -- Show primary Query Builder menu
-    local dialogBox = Script.ShowPopupList("Query Builder", "Error", QueryBuilderMenu)
+    local dialogBox = Script.ShowPopupList("Query: " .. GetFittedCurrentBuilderQuery(), "Error", QueryBuilderMenu)
     local quit = false
     if not dialogBox.Canceled then
-        local selected = dialogBox.Selected.Key
+        local selected = dialogBox.Selected.Value
 
         if selected == QueryBuilderMenu[1] then     -- "Show SQL Syntax"
-            local selectedSyntax = PromptSelectFromArr(SqlSyntax)
-            local toInsert = SqlSyntax[selectedSyntax]
-            if toInsert:sub(-1) ~= "(" then
-                toInsert = toInsert .. " "
+            local selectedSyntax
+            while selectedSyntax ~= -1 do   -- Keep refreshing screen for input until user cancels
+                selectedSyntax = PromptSelectFromArr(SqlSyntax, "Query: " .. GetFittedCurrentBuilderQuery())
+                if selectedSyntax ~= -1 then
+                    local toInsert = SqlSyntax[selectedSyntax]
+                    if toInsert:sub(-1) ~= "(" then
+                        toInsert = toInsert .. " "
+                    end
+                    LastEntry = toInsert
+                    CurrentBuilderQuery = CurrentBuilderQuery .. toInsert
+                end
             end
-            LastEntry = toInsert
-            CurrentBuilderQuery = CurrentBuilderQuery .. toInsert
         elseif selected == QueryBuilderMenu[2] then -- "Show Keyboard"
-            local selectedSyntax = PromptSelectFromArr(Keyboard)
-            local toInsert = Keyboard[selectedSyntax]
-            LastEntry = toInsert
-            CurrentBuilderQuery = CurrentBuilderQuery .. toInsert
-        elseif selected == QueryBuilderMenu[3] then -- "Show Column By Table"
+            local selectedSyntax
+            while selectedSyntax ~= -1 do   -- Keep refreshing screen for input until user cancels
+                selectedSyntax = PromptSelectFromArr(Keyboard, "Query: " .. GetFittedCurrentBuilderQuery())
+                if selectedSyntax ~= -1 then
+                    local toInsert = Keyboard[selectedSyntax]
+                    LastEntry = toInsert
+                    CurrentBuilderQuery = CurrentBuilderQuery .. toInsert
+                end
+            end
+        elseif selected == QueryBuilderMenu[3] then -- "Show Tables"
             local selectedTableKey = PromptTableSelect()
             if selectedTableKey ~= -1 then
                 local selectedTableName = StripSubitemPadding(Tables[selectedTableKey][1][1]) .. " "    -- Append space to end of table name for query insert
-                local iDialogBox = Script.ShowPopupList(selectedTableName .. "columns", "Error", Tables[selectedTableKey][1][2])
+                
+                LastEntry = selectedTableName
+                CurrentBuilderQuery = CurrentBuilderQuery .. selectedTableName
+            end
+        elseif selected == QueryBuilderMenu[4] then -- "Show Column By Table"
+            local selectedTableKey = PromptTableSelect()
+            if selectedTableKey ~= -1 then
+                local selectedTableName = StripSubitemPadding(Tables[selectedTableKey][1][1])
+                local iDialogBox = Script.ShowPopupList(selectedTableName .. " columns", "Error", Tables[selectedTableKey][2])
                 if not iDialogBox.Canceled then
-                    LastEntry = selectedTableName
-                    CurrentBuilderQuery = CurrentBuilderQuery .. selectedTableName
+                    local selectedColumnName = iDialogBox.Selected.Value .. " "
+                    LastEntry = selectedColumnName
+                    CurrentBuilderQuery = CurrentBuilderQuery .. selectedColumnName
                 end
             end
-        elseif selected == QueryBuilderMenu[4] then -- "Show Full Query"
+        elseif selected == QueryBuilderMenu[5] then -- "Show Full Query"
             Script.ShowMessageBox("Query", CurrentBuilderQuery, "Back")
-        elseif selected == QueryBuilderMenu[5] then -- "Delete Last Entry"
-            if not LastEntry == "" then
+        elseif selected == QueryBuilderMenu[6] then -- "Delete Last Entry"
+            if LastEntry ~= "" then
                 -- Find the index of the last occurrence of LastEntry
-                local lastEntryStartIndex = CurrentBuilderQuery:match(".*()" .. LastEntry:gsub("%s", "%%s")) -- Escape spaces in pattern
-
+                local lastEntryStartIndex = #CurrentBuilderQuery - (#LastEntry - CurrentBuilderQuery:reverse():find(LastEntry:reverse()))
                 if lastEntryStartIndex then
                     -- Reconstruct string without the last occurrence
-                    CurrentBuilderQuery = CurrentBuilderQuery:sub(1, lastEntryStartIndex - 1) .. CurrentBuilderQuery:sub(lastEntryStartIndex + #LastEntry - 1)
+                    CurrentBuilderQuery = CurrentBuilderQuery:sub(1, lastEntryStartIndex - 1)
                 end
                 LastEntry = ""
             end
-        elseif selected == QueryBuilderMenu[6] then -- "Backspace"
+        elseif selected == QueryBuilderMenu[7] then -- "Backspace"
             CurrentBuilderQuery = CurrentBuilderQuery:sub(1, #CurrentBuilderQuery - 1)
-        elseif selected == QueryBuilderMenu[7] then -- ""
-        elseif selected == QueryBuilderMenu[8] then -- "Clear Query"
+        elseif selected == QueryBuilderMenu[8] then -- ""
+        elseif selected == QueryBuilderMenu[9] then -- "Clear Query"
             CurrentBuilderQuery = ""
-        elseif selected == QueryBuilderMenu[9] then -- "Quit"
-            quit = true
-        elseif selected == QueryBuilderMenu[10] then -- "Main Menu"
-            ShowMainMenu()
-        elseif selected == QueryBuilderMenu[11] then -- ""
-        elseif selected == QueryBuilderMenu[12] then -- "Execute Query"
-            -- TODO
+        elseif selected == QueryBuilderMenu[10] then -- ""
+        elseif selected == QueryBuilderMenu[11] then -- "Execute Query"
+            -- Determine if we need to return data
+            if string.find(CurrentBuilderQuery:upper(), " RETURNING ") or string.find(CurrentBuilderQuery:upper(), "SELECT ") then  -- Data return needed
+                local queryResponse = Sql.ExecuteFetchRows(CurrentBuilderQuery)    -- Execute query
+                for i, row in ipairs(queryResponse) do
+                    local displayRows = {}
+                    for key, value in pairs(row) do -- Populate column: value pairs for display rows in popup list
+                        if value ~= nil then
+                            displayRows[#displayRows+1] = key .. ": " .. value
+                        else
+                            displayRows[#displayRows+1] = key .. ": Null"
+                        end
+                    end
+                    -- Display db entry
+                    local dialogBox = Script.ShowPopupList("Entry " .. i .. " of " .. #queryResponse, "Error", displayRows)
+                    if dialogBox.Canceled then
+                        break
+                    end
+                end
+            else    -- Data return not needed, just execute
+                Sql.Execute(CurrentBuilderQuery)
+                Script.ShowMessageBox("Done", "Query executed successfully", "Ok")
+                ResetToMainMenu()
+                return
+            end
         end
         
-        if not quit then
-            ShowQueryBuilder()  -- Refresh Query Builder after selection
-        end
+        ShowQueryBuilder()  -- Refresh Query Builder after selection
+        return
     end
 
-    if not quit then
-        ShowMainMenu()  -- User canceled
-    end
+    ResetToMainMenu()  -- User canceled
 end
 
 -- Prompts user to select a table for browsing and returns selected index, returns -1 on cancel
@@ -294,7 +361,7 @@ end
 
 -- Prompts the user to select from a given array in a popup list, returns -1 on cancel
 function PromptSelectFromArr(arr, title)
-    local dialogBox Script.ShowPopupList(title, "Error", arr)
+    local dialogBox = Script.ShowPopupList(title, "Error", arr)
     local ret = -1
     if not dialogBox.Canceled then
         ret = dialogBox.Selected.Key
@@ -307,33 +374,42 @@ end
 function ShowTable(key)
     -- Main menu return
     if key <= 0 then
-        ShowMainMenu()
-    end
-
-    -- Populate table name, columns, and database entries
-    local rows = {} -- Rows in the database table
-    local tableName = StripSubitemPadding(Tables[key][1][1])
-    local columns = Tables[key][2]
-    for i, row in pairs(Sql.ExecuteFetchRows("SELECT * FROM " .. tableName .. " ORDER BY " .. columns[1] .. " ASC")) do   -- Safe to assume first column will always be primary key
-        rows[i] = row
-    end
-
-    -- Iterate main menu button and database entries for selected table/option and display
-    for i, row in ipairs(rows) do
-        -- Populate rows in popup list to display data by column
-        local displayRows = {}
-        for j, column in ipairs(columns) do
-            displayRows[j] = column .. ": " .. row[column]
+        ResetToMainMenu()
+    else
+        -- Populate table name, columns, and database entries
+        local rows = {} -- Rows in the database table
+        local tableName = StripSubitemPadding(Tables[key][1][1])
+        local columns = Tables[key][2]
+        for i, row in pairs(Sql.ExecuteFetchRows("SELECT * FROM " .. tableName .. " ORDER BY " .. columns[1] .. " ASC")) do   -- Safe to assume first column will always be primary key
+            rows[i] = row
         end
 
-        -- Display data for entry
-        local dialogBox = Script.ShowPopupList("Table: " .. tableName .. " (" .. i .. " of " .. #rows .. ")", "None found.", displayRows)
-        if dialogBox.Canceled then
-            break
-        end
-    end
 
-    ShowMainMenu()
+        -- Iterate main menu button and database entries for selected table/option and display
+        for i, row in ipairs(rows) do
+            -- Populate rows in popup list to display data by column
+            local displayRows = {}
+            for j, column in ipairs(columns) do
+                if row[column] == nil then
+                    displayRows[j] = column .. ": Null"
+                else
+                    displayRows[j] = column .. ": " .. row[column]
+                end
+            end
+
+            -- Display data for entry
+            local dialogBox = Script.ShowPopupList("Table: " .. tableName .. " (" .. i .. " of " .. #rows .. ")", "None found.", displayRows)
+            if dialogBox.Canceled then
+                break
+            end
+        end
+
+        if #rows == 0 then
+            Script.ShowMessageBox("Empty table", "No records found.", "OK")
+        end
+
+        ResetToMainMenu()
+    end
 end
 
 -- Returns an array of accessible table names
@@ -348,4 +424,13 @@ end
  -- Remove display padding and return string
 function StripSubitemPadding(stringToStrip)
     return string.sub(stringToStrip, string.len(TableSubitemPadding) + 1, string.len(stringToStrip));
+end
+
+-- Returns the current builder query trimmed to fit into a title box. Left-side trim.
+function GetFittedCurrentBuilderQuery()
+    if #CurrentBuilderQuery > 45 then
+        return ".." .. CurrentBuilderQuery:sub(#CurrentBuilderQuery - 43, #CurrentBuilderQuery)
+    else
+        return CurrentBuilderQuery
+    end
 end
