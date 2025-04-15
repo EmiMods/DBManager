@@ -5,8 +5,6 @@ scriptDescription = "Browse and manage Aurora's databases"
 scriptIcon = "icon.png"
 scriptPermissions = { "sql" }
 
-ExitTriggered = false
-
 -- Unfortunately I don't know the secondary database alias for Settings (Content.db is primary) and we cannot use commands, so manually listing tables and DB
 TableContentHeader = "--- Content.db Tables ---"
 TableSettingsHeader = "--- Settings.db Tables ---"
