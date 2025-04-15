@@ -33,20 +33,8 @@ Tables = {
     { {TableSubitemPadding .. "UserSettings"}, {"Id","Name","Value","ProfileId"} }
 }
 
-CurrentQuery = ""
-
-QueryBuilderMenu = {
-    "Show SQL Syntax",
-    "Show Keyboard",
-    "Show Column By Table",
-    "Delete Last Entry",
-    "",
-    "Clear Query",
-    "Quit",
-    "Main Menu",
-    "",
-    "Execute Query"
-}
+CurrentBuilderQuery = ""
+LastEntry = ""
 
 SqlSyntax = {
     "SELECT",
@@ -86,6 +74,7 @@ SqlSyntax = {
     "ASC",
     "DESC",
     "LIMIT",
+    "RETURNING",
     "NULL",
     "NOTHING",
     "EXCEPT",
@@ -95,8 +84,7 @@ SqlSyntax = {
     "AVG(",
     "MAX(",
     "MIN(",
-    "GROUP_CONCAT(",
-    "",
+    "GROUP_CONCAT("
 }
 
 Keyboard = {
@@ -169,8 +157,7 @@ Keyboard = {
     "~",
     "`",
     "|",
-    "&",
-    ""
+    "&"
 }
 
 MainMenu = {
@@ -178,77 +165,175 @@ MainMenu = {
     "View Table (All Entries)"
 }
 
+QueryBuilderMenu = {
+    "Show SQL Syntax",
+    "Show Keyboard",
+    "Show Column By Table",
+    "Show Full Query",
+    "Delete Last Entry",
+    "Backspace",
+    "",
+    "Clear Query",
+    "Quit",
+    "Main Menu",
+    "",
+    "Execute Query"
+}
+
+MainMenuOption_QueryBuilder = 1
+MainMenuOption_ViewTable = 2
+
 -- Main entry point to script
 function main()
+    -- Show Main Menu
     local selectedMenuOption = ShowMainMenu();
 
-    local selectedTableKey =   PromptTableSelect()
-    if selectedMenuOption == 1 then
-        ShowTable(selectedTableKey)
-    elseif selectedMenuOption == 2 then
+    if selectedMenuOption == MainMenuOption_QueryBuilder then     -- User selected "Manually Query Databases"
         ShowQueryBuilder()
+    elseif selectedMenuOption == MainMenuOption_ViewTable then     -- User selected "View Table (All Entries)"
+        ShowTable(PromptTableSelect())
     end
-end
-
--- Menu for user to build and execute queries
-function ShowQueryBuilder()
-    local dialogBox = Script.ShowPopupList("Query Builder", "Error", QueryBuilderMenu)
-    local selected = dialogBox.Selected.Key
-
-    if selected == QueryBuilderMenu[1] then     -- "Show SQL Syntax"
-    elseif selected == QueryBuilderMenu[2] then -- "Show Keyboard"
-    elseif selected == QueryBuilderMenu[3] then -- "Show Column By Table"
-    elseif selected == QueryBuilderMenu[4] then -- "Delete Last Entry"
-    elseif selected == QueryBuilderMenu[5] then -- ""
-    elseif selected == QueryBuilderMenu[6] then -- "Clear Query"
-    elseif selected == QueryBuilderMenu[7] then -- "Quit"
-    elseif selected == QueryBuilderMenu[8] then -- "Main Menu"
-    elseif selected == QueryBuilderMenu[9] then -- ""
-    elseif selected == QueryBuilderMenu[10] then -- "Execute Query"
-        
-    end
+    -- User canceled
 end
 
 function ShowMainMenu()
     local dialogBox = Script.ShowPopupList(scriptTitle, "Error", MainMenu)
-    return dialogBox.Selected.Key
+    if not dialogBox.Canceled then
+        return dialogBox.Selected.Key
+    end
+    
+    return -1
 end
 
--- Prompts user to select a table for browsing and returns selected index
-function PromptTableSelect()
-    local selected = ""
-    local dialogBox
-    while selected == "" do
-        dialogBox = Script.ShowPopupList("Database Browser", "None found.", GetTableNames())
-    
-        if dialogBox.Selected.Value ~= TableContentHeader and dialogBox.Selected.Value ~= TableSettingsHeader then
-            selected = dialogBox.Selected.Value
+-- Menu for user to build and execute queries
+function ShowQueryBuilder()
+    -- Show primary Query Builder menu
+    local dialogBox = Script.ShowPopupList("Query Builder", "Error", QueryBuilderMenu)
+    local quit = false
+    if not dialogBox.Canceled then
+        local selected = dialogBox.Selected.Key
+
+        if selected == QueryBuilderMenu[1] then     -- "Show SQL Syntax"
+            local selectedSyntax = PromptSelectFromArr(SqlSyntax)
+            local toInsert = SqlSyntax[selectedSyntax]
+            if toInsert:sub(-1) ~= "(" then
+                toInsert = toInsert .. " "
+            end
+            LastEntry = toInsert
+            CurrentBuilderQuery = CurrentBuilderQuery .. toInsert
+        elseif selected == QueryBuilderMenu[2] then -- "Show Keyboard"
+            local selectedSyntax = PromptSelectFromArr(Keyboard)
+            local toInsert = Keyboard[selectedSyntax]
+            LastEntry = toInsert
+            CurrentBuilderQuery = CurrentBuilderQuery .. toInsert
+        elseif selected == QueryBuilderMenu[3] then -- "Show Column By Table"
+            local selectedTableKey = PromptTableSelect()
+            if selectedTableKey ~= -1 then
+                local selectedTableName = StripSubitemPadding(Tables[selectedTableKey][1][1]) .. " "    -- Append space to end of table name for query insert
+                local iDialogBox = Script.ShowPopupList(selectedTableName .. "columns", "Error", Tables[selectedTableKey][1][2])
+                if not iDialogBox.Canceled then
+                    LastEntry = selectedTableName
+                    CurrentBuilderQuery = CurrentBuilderQuery .. selectedTableName
+                end
+            end
+        elseif selected == QueryBuilderMenu[4] then -- "Show Full Query"
+            Script.ShowMessageBox("Query", CurrentBuilderQuery, "Back")
+        elseif selected == QueryBuilderMenu[5] then -- "Delete Last Entry"
+            if not LastEntry == "" then
+                -- Find the index of the last occurrence of LastEntry
+                local lastEntryStartIndex = CurrentBuilderQuery:match(".*()" .. LastEntry:gsub("%s", "%%s")) -- Escape spaces in pattern
+
+                if lastEntryStartIndex then
+                    -- Reconstruct string without the last occurrence
+                    CurrentBuilderQuery = CurrentBuilderQuery:sub(1, lastEntryStartIndex - 1) .. CurrentBuilderQuery:sub(lastEntryStartIndex + #LastEntry - 1)
+                end
+                LastEntry = ""
+            end
+        elseif selected == QueryBuilderMenu[6] then -- "Backspace"
+            CurrentBuilderQuery = CurrentBuilderQuery:sub(1, #CurrentBuilderQuery - 1)
+        elseif selected == QueryBuilderMenu[7] then -- ""
+        elseif selected == QueryBuilderMenu[8] then -- "Clear Query"
+            CurrentBuilderQuery = ""
+        elseif selected == QueryBuilderMenu[9] then -- "Quit"
+            quit = true
+        elseif selected == QueryBuilderMenu[10] then -- "Main Menu"
+            ShowMainMenu()
+        elseif selected == QueryBuilderMenu[11] then -- ""
+        elseif selected == QueryBuilderMenu[12] then -- "Execute Query"
+            -- TODO
+        end
+        
+        if not quit then
+            ShowQueryBuilder()  -- Refresh Query Builder after selection
         end
     end
 
-    return dialogBox.Selected.Key
+    if not quit then
+        ShowMainMenu()  -- User canceled
+    end
 end
 
--- Display table in message box
+-- Prompts user to select a table for browsing and returns selected index, returns -1 on cancel
+function PromptTableSelect()
+    local selectedTable = ""
+    local selectedTableKey = -1
+    local dialogBox
+    -- Wait for user to select VALID table option
+    while selectedTable == "" do
+        dialogBox = Script.ShowPopupList("Database Browser", "None found.", GetTableNames())
+        if dialogBox.Canceled then
+           selectedTable = "Canceled"
+        elseif dialogBox.Selected.Value ~= TableContentHeader and dialogBox.Selected.Value ~= TableSettingsHeader then  -- Filter out database name display headers
+            selectedTable = dialogBox.Selected.Value
+            selectedTableKey = dialogBox.Selected.Key
+        end
+    end
+
+    return selectedTableKey
+end
+
+-- Prompts the user to select from a given array in a popup list, returns -1 on cancel
+function PromptSelectFromArr(arr, title)
+    local dialogBox Script.ShowPopupList(title, "Error", arr)
+    local ret = -1
+    if not dialogBox.Canceled then
+        ret = dialogBox.Selected.Key
+    end
+
+    return ret
+end
+
+-- Display selected table in popup list
 function ShowTable(key)
+    -- Main menu return
+    if key <= 0 then
+        ShowMainMenu()
+    end
+
     -- Populate table name, columns, and database entries
-    local rows = {}
+    local rows = {} -- Rows in the database table
     local tableName = StripSubitemPadding(Tables[key][1][1])
     local columns = Tables[key][2]
     for i, row in pairs(Sql.ExecuteFetchRows("SELECT * FROM " .. tableName .. " ORDER BY " .. columns[1] .. " ASC")) do   -- Safe to assume first column will always be primary key
         rows[i] = row
     end
 
-    -- Iterate database entries and display
+    -- Iterate main menu button and database entries for selected table/option and display
     for i, row in ipairs(rows) do
+        -- Populate rows in popup list to display data by column
         local displayRows = {}
         for j, column in ipairs(columns) do
             displayRows[j] = column .. ": " .. row[column]
         end
-        Script.ShowPopupList("Table: " .. tableName .. " Entry: " .. i .. " of " .. #rows, "None found.", displayRows)
+
+        -- Display data for entry
+        local dialogBox = Script.ShowPopupList("Table: " .. tableName .. " (" .. i .. " of " .. #rows .. ")", "None found.", displayRows)
+        if dialogBox.Canceled then
+            break
+        end
     end
 
-    Script.ShowMessageBox("<3", "" .. columns[1], "Please God no", "No");
+    ShowMainMenu()
 end
 
 -- Returns an array of accessible table names
