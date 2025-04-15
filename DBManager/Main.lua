@@ -1,7 +1,7 @@
 scriptTitle = "Aurora Database Manager"
 scriptAuthor = "EmiMods"
 scriptVersion = 1.0
-scriptDescription = "Browse Aurora's content and settings databases"
+scriptDescription = "Browse and manage Aurora's databases"
 scriptIcon = "icon.png"
 scriptPermissions = { "sql" }
 
